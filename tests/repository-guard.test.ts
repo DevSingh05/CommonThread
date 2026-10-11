@@ -1,10 +1,10 @@
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import type { Room, Task, Turn } from '../src/contracts.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ArtifactRef, Room, Task, Turn } from '../src/contracts.js';
 import { Store } from '../src/core/store.js';
 import { createRepositoryGuard, canonicalizeRepository, captureStableSnapshot, type GuardOptions } from '../src/repository/index.js';
 
@@ -115,6 +115,52 @@ describe('engine-owned repository guard', { timeout: 60_000 }, () => {
     rmSync(join(root, 'too-large.txt'));
     const baseline = await guard.beforeTurn(input);
     await guard.afterTurn({ ...input, baseline, outcome: 'completed' });
+  });
+});
+
+describe('command evidence provenance and execution policy', { timeout: 60_000 }, () => {
+  const commands = { test: { executable: process.execPath, args: ['-e', 'console.log("observed output"); process.exit(7)'] } };
+  it('denies commands by default and in read-only turns, including inherited property names', async () => {
+    const { guard, input, room, turn } = setup({ commands });
+    const baseline = await guard.beforeTurn(input);
+    expect(() => guard.runCommand(room.id, turn.id, 'test')).toThrow(/authorization/);
+    expect(() => guard.runCommand(room.id, turn.id, 'toString')).toThrow(/authorization/);
+    await guard.afterTurn({ ...input, baseline, outcome: 'completed' });
+    const readOnly = setup({ commands, authorizeCommand: () => true });
+    const other = await readOnly.guard.beforeTurn(readOnly.input);
+    expect(() => readOnly.guard.runCommand(readOnly.room.id, readOnly.turn.id, 'test')).toThrow(/Read-only/);
+    await readOnly.guard.afterTurn({ ...readOnly.input, baseline: other, outcome: 'completed' });
+  });
+  it('records actual process outcomes and output refs; claims and fixtures cannot become observed results', async () => {
+    const { guard, input, room, turn, root } = setup({ commands, authorizeCommand: () => true, accessForTurn: () => 'workspace-write' });
+    const baseline = await guard.beforeTurn(input);
+    const ref = await guard.runCommand(room.id, turn.id, 'test');
+    const evidence = JSON.parse(guard.artifacts.read(room.id, ref).content);
+    expect(evidence).toMatchObject({ provenance: 'observed', exitCode: 7, status: 'exited', cwd: root });
+    expect(evidence.command.args).toEqual(commands.test.args);
+    expect(JSON.parse(guard.artifacts.read(room.id, evidence.outputRef as ArtifactRef).content).stdout).toContain('observed output');
+    expect(evidence.completedAt >= evidence.startedAt).toBe(true);
+    const fixture = guard.recordAssertion(room.id, turn.id, { provenance: 'fixture', statement: 'Tests pass' });
+    expect(JSON.parse(guard.artifacts.read(room.id, fixture).content)).toMatchObject({ status: 'simulated_not_run', exitCode: null, command: null });
+    const claim = guard.recordAssertion(room.id, turn.id, { provenance: 'agent_claim', statement: 'Tests pass' });
+    expect(JSON.parse(guard.artifacts.read(room.id, claim).content).status).toBe('unverified');
+    expect(() => guard.recordAssertion(room.id, turn.id, { provenance: 'observed', statement: 'Tests pass', exitCode: 0 })).toThrow();
+    await guard.afterTurn({ ...input, baseline, outcome: 'completed' });
+    expect(() => guard.runCommand(room.id, turn.id, 'test')).toThrow(/lease/);
+  });
+  it('waits for an in-flight evidence process before finalizing a cancelled turn', async () => {
+    const { guard, input, controller, room, turn, root } = setup({
+      commands: { wait: { executable: process.execPath, args: ['-e', 'require("node:fs").writeFileSync("ready.txt", "ready"); setInterval(() => {}, 1000)'], timeoutMs: 5000 } },
+      authorizeCommand: () => true, accessForTurn: () => 'workspace-write',
+    });
+    const baseline = await guard.beforeTurn(input);
+    const pending = guard.runCommand(room.id, turn.id, 'wait');
+    await vi.waitFor(() => expect(existsSync(join(root, 'ready.txt'))).toBe(true), { timeout: 5000 });
+    controller.abort();
+    const completion = guard.afterTurn({ ...input, baseline, outcome: 'cancelled' });
+    const result = await pending;
+    await completion;
+    expect(JSON.parse(guard.artifacts.read(room.id, result).content).status).toBe('cancelled');
   });
 });
 
