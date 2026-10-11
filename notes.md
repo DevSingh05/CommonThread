@@ -2,6 +2,8 @@
 
 ## Start here
 
+**Integration update:** the human has now authorized merging the teammates' pushed work to `main`. The engine, providers and UI are integrated, with contract fixes and real-server browser validation. The repository/evidence remote still contains only the initial documentation commit. Read [integration status](docs/integration-status.md) before starting follow-up work; it supersedes the earlier engine-only delivery status below. Live mode remains disabled pending the repository guard, and the local Claude smoke is currently blocked by weekly quota.
+
 The repository began empty. Four human teammates each own one branch. The current agent implements **only `feature/conversation-engine`**. The other branches are reserved for teammates and their own agents. These notes exist on every branch before implementation.
 
 The complete product is a local shared room where a human, Claude, and Codex exchange explicit work requests, revise versioned results, and retain human control. A functioning engine alone is not the completed product. Do not present the demo as real provider work or a scaffold as a finished integration.

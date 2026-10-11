@@ -1,5 +1,7 @@
 # Provider adapters (Claude + Codex)
 
+**Integration update:** adapters are merged with the engine and browser UI. Server live registration remains blocked on the unpushed repository/evidence guard. A fresh smoke attempt on the integration machine hit Claude's weekly quota before completing the first turn; [integration status](integration-status.md) records that limitation. The earlier successful smoke below was on the provider teammate's machine.
+
 Owner: Teammate 2, branch `feature/provider-adapters`. Progress/continuation log: [providers-status.md](providers-status.md).
 
 ## Versions and sources

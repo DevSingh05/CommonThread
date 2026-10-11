@@ -1,5 +1,7 @@
 # Shared room UI — status
 
+**Integration update:** the UI now works with the actual compiled server, SQLite store and dispatcher. Contract mismatches were resolved and three production-browser checks pass, alongside the original mock-specific coverage. See [integration status](integration-status.md) for the authoritative current results; the original standalone-branch observations below are retained as history.
+
 Branch: `feature/shared-room-ui` (teammate 3). Owned files only: `src/web/**`, `index.html`, `vite.config.ts`, `public/` (UI assets), UI tests under `test/web/**`, and this document.
 
 ## State of integration

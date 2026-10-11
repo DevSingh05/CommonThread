@@ -2,21 +2,22 @@
 
 A local shared project room for a human, Claude, and Codex. Explicit messages, handoffs, versioned work, and human control are the product.
 
-This repository is being built by four teammates. **This branch implements the conversation engine only.** The React UI, live Claude/Codex integrations, and real repository evidence are assigned to the other three branches. Read [notes.md](notes.md) for ownership and integration order. This is working backend software with a complete simulated API workflow, not yet the integrated end-user application.
+The shared-room React UI, persistent conversation engine, and Claude/Codex adapters are integrated. **The browser demo works end to end through the real server and SQLite store. Live coding remains disabled until the repository/evidence teammate pushes the safety guard and evidence integration.** Read [integration status](docs/integration-status.md) for verified behavior and remaining work, and [notes.md](notes.md) for team ownership.
 
 ## Run locally
 
 Requirements: Node **24.14+ on the 24.x LTS line** and npm. No API keys or hosted services are needed for the offline demo.
 
 ```sh
-git switch feature/conversation-engine
+git switch main
+git pull --ff-only
 npm ci
 cp .env.example .env
 npm run build
 npm start
 ```
 
-The server listens on `http://127.0.0.1:4317`. In another terminal:
+Open **http://127.0.0.1:4317** in your browser. Create a simulated room and send `@claude propose a cache fix`. Answer Codex's question with "Keep the public API unchanged" to watch the revision and final review in the same thread. To exercise the API from another terminal:
 
 ```sh
 npm run demo
@@ -26,7 +27,7 @@ The demo creates a persisted room and performs five simulated turns: Claude prop
 
 For engine development, `npm run dev` restarts on source changes. `.env` is loaded by the Node launcher. For a different local demo endpoint, use `COMMONTHREAD_URL=http://127.0.0.1:4320 npm run demo`.
 
-The root URL currently returns service information. It will serve the UI when teammate 3 builds to `dist/web`; the engine does not include a placeholder chat UI. UI developers should merge this branch, proxy `/api` to port 4317 and enable their exact local Vite origin with `COMMONTHREAD_DEV_ORIGINS` in `.env`.
+The production server serves the built React UI from `dist/web` on the same origin as the API. For frontend development, run `npm run dev:server` and `npm run dev:web` in separate terminals; Vite proxies `/api` to the engine. The root URL reports a missing build if you have not run `npm run build`.
 
 ## Verification
 
@@ -37,9 +38,12 @@ npm test
 npm run build
 # Or all four:
 npm run check
+# Browser checks (installed Google Chrome by default):
+npm run test:integration  # built UI + real server/SQLite/dispatcher
+npm run test:browser      # UI-specific error/reconnect tests with the test-only mock
 ```
 
-Tests are offline. HTTP tests bind ephemeral loopback ports; restricted sandboxes may need permission for local listeners. The demo driver targets an already-running server. [Engine status](docs/engine-status.md) records actual validation and remaining scope.
+These tests are offline. HTTP/browser tests bind loopback ports; restricted sandboxes may need permission for local listeners and browsers. Install Chrome, or install Playwright Chromium and set `PLAYWRIGHT_CHANNEL=chromium`. The demo driver targets an already-running server. [Integration status](docs/integration-status.md) records actual validation and remaining scope.
 
 ## API
 
@@ -62,7 +66,7 @@ Requests and responses are defined in [src/contracts.ts](src/contracts.ts). [Pro
 
 ## Troubleshooting
 
-- **Live mode unavailable:** intentional until the provider and repository branches register actual integrations. No credentials are needed or requested by this branch. Follow teammate 2's eventual `docs/providers.md`; no SDK/authentication claims have been live-verified here.
+- **Live mode unavailable:** intentional until the repository guard/evidence integration arrives. Adapters are present; `COMMONTHREAD_LIVE=1` alone does not bypass the missing safeguard. See [provider setup](docs/providers.md). No credentials are needed for the simulated browser demo.
 - **Port in use / `EADDRINUSE`:** stop the existing server or set `COMMONTHREAD_PORT` to a different local port. The demo's `COMMONTHREAD_URL` must match.
 - **Listener permission / `EPERM`:** the environment is blocking localhost sockets. Allow local server execution in your development environment; binding remains `127.0.0.1`.
 - **Data directory already owned:** use the running server. Each data directory supports one process. A stale lock is recovered only when its PID is confirmed dead. For an invalid lock or PID reuse, verify that no server owns the directory before manually removing `server.lock`.
@@ -71,5 +75,5 @@ Requests and responses are defined in [src/contracts.ts](src/contracts.ts). [Pro
 - **Question awaiting input:** reply with its `message.id` in `replyTo`; the asking agent receives the answer. An unaddressed message without `replyTo` is saved as shared context only.
 - **Frontend token expired after restart:** fetch `/api/bootstrap` again. Tokens are process-local and never belong in persistent browser storage.
 
-Application limits are scheduling bounds, not guaranteed monetary caps. SQLite storage and full snapshot reads target hackathon-scale local rooms. This branch is not production-ready; see the explicit [limitations](docs/architecture.md#limitations-and-integration-work).
+Application limits are scheduling bounds, not guaranteed monetary caps. SQLite storage and full snapshot reads target hackathon-scale local rooms. This application is not production-ready; see the explicit [limitations](docs/architecture.md#limitations-and-integration-work).
 

@@ -2,7 +2,7 @@
 
 Read `notes.md` and your branch's file in `docs/handoffs/` before changing code.
 
-- Four human teammates own four feature branches. Implement only your assigned branch. Do not launch agents to implement the other teammates' work.
+- Four human teammates own four feature branches. During feature work, implement only your assigned branch. A human-authorized integration task may review, fix and merge their pushed work into main. Do not launch agents to implement the other teammates' work.
 - Keep the shared conversation central; never parse agent prose to authorize actions.
 - TypeScript is strict. Validate untrusted input at boundaries. SQLite is the source of truth; a transcript is not an execution protocol.
 - Use the existing human Git identity. Never add an AI author, co-author, signed-off-by, or generated-by attribution to commits. Commit coherent, tested milestones, not every file or an entire day's work.

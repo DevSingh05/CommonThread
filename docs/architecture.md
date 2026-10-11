@@ -1,5 +1,7 @@
 # Conversation engine architecture
 
+Integration status: the React UI and provider adapters have now landed; [the integration report](integration-status.md) supersedes the engine-only scope statements below. Repository guard/evidence implementation is still missing, so live execution remains disabled.
+
 ## Execution path
 
 An authenticated local human mutation is schema-validated and saved transactionally with its idempotency receipt. A directed message creates one task and queued turn. The scheduler acquires room and canonical-directory ownership, builds attributed context, then calls the selected adapter outside any SQL transaction. A successful adapter result is validated as a whole; its actions, visible messages, versions, reviews, session cursor and completed turn commit together. An explicit handoff queues the next recipient. Ordinary messages do not schedule work.
