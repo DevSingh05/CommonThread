@@ -19,6 +19,12 @@ The complete product is a local shared room where a human, Claude, and Codex exc
 
 Shared root files (`package.json`, lockfile, TS/ESLint config, README, contracts, server composition) need small coordinated changes, not wholesale replacement. Each feature should add its own scripts/dependencies while retaining existing ones. Run `npm install` to resolve lockfile conflicts, do not hand-edit the lockfile. No teammate should rewrite the engine or create a second data store.
 
+### Repository evidence pickup
+
+`feature/repository-evidence` now supplies `createRepositoryGuard(store, options)`, `canonicalizeRepository(path)`, immutable captures in the existing SQLite artifact store, and repository acceptance tests. See [repository safety](docs/repository-safety.md), [actual status](docs/repository-status.md), and [demo script](docs/demo-script.md). No shared TypeScript contract or teammate implementation was changed.
+
+Integration coordination: the engine owner should normalize live room creation with `canonicalizeRepository(path).root` before its existing path-based ownership check. Until then, select the Git root; the guard rejects subdirectories. The provider owner should translate `guard.getTurnContext(roomId, turnId)` into verified SDK cwd/permissions and fail closed if unsupported. Explicit write/command approvals must come from trusted human state. Human external-change acknowledgement needs an engine-owned protected handler; it must never be exposed to provider tools. Capture artifacts already use `ArtifactRef` and appear as system artifact messages; final captures become available after provider execution, before engine action commit. Default server composition and live capabilities remain unchanged pending these integrations.
+
 ## Git workflow
 
 1. `git fetch origin`
