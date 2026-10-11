@@ -40,7 +40,7 @@ See the checklist below; it is updated at each milestone.
 1. Live smoke is done (see above). Rerun it only with user consent (real quota) after adapter changes; record outcomes here. On Windows PowerShell: `$env:COMMONTHREAD_LIVE_SMOKE = "1"; npm run smoke:providers`.
 2. Engine dispatcher/server merged (`1a316cd`). Hand the engine owner the registration snippet in `docs/providers.md` ("Engine registration"); it needs teammate 4's `RepositoryGuard`. Do not edit `src/server/**` yourself.
 3. Coordinate with teammate 4 for a write-capable `PolicyResolver` and Codex `command_execution` → observed-evidence wiring.
-4. PR opened against `main` (see Log). Address review feedback there.
+4. Open the PR against `main` (gh auth needed) using the drafted description, then address review feedback.
 5. Known engine-owned test issue on Windows: `tests/engine.test.ts` "serializes rooms using the same canonical repository path, including aliases" fails with `EPERM` on `symlinkSync` unless Windows Developer Mode/admin is enabled. Not a provider issue; reported to engine owner via the PR.
 
 ## Log
@@ -48,4 +48,4 @@ See the checklist below; it is updated at each milestone.
 - 2026-10-11: Cloned, merged engine foundation, installed SDKs, started implementation.
 - 2026-10-11: Implemented protocol, permissions, Claude/Codex adapters, live factory, offline tests, smoke script, docs. All local checks green. Committed locally (not pushed).
 - 2026-10-11: Live smoke passed; fixed Claude usage accounting, canUseTool shadowing, StructuredOutput noise; documented Windows native-binary install quirk.
-- 2026-10-11: Merged engine `1a316cd` (dispatcher/server). `npm run check`: 72/73 pass; the 1 failure is the engine's Windows symlink EPERM test above. Pushed branch and opened PR.
+- 2026-10-11: Merged engine `1a316cd` (dispatcher/server). `npm run check`: 72/73 pass; the 1 failure is the engine's Windows symlink EPERM test above. Pushed branch to origin/feature/provider-adapters. PR not yet opened (gh not authenticated); description drafted in .git/PR_BODY.md.
