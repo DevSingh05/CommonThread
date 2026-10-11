@@ -21,7 +21,7 @@ async function main(): Promise<void> {
       port, webDirectory: resolve('dist/web'),
       devOrigins: process.env.COMMONTHREAD_DEV_ORIGINS?.split(',').filter(Boolean),
     });
-    console.log(`CommonThread engine: ${http.url}\nDemo adapters are simulated. Live integrations are not registered.\nAPI workflow: npm run demo\nReact UI: feature/shared-room-ui`);
+    console.log(`CommonThread: ${http.url}\nDemo agents are simulated. Live execution awaits repository safeguards.\nBrowser UI is served from dist/web. API workflow: npm run demo`);
     let stopping = false;
     const shutdown = async () => {
       if (stopping) return;

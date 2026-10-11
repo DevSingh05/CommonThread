@@ -232,7 +232,7 @@ describe('validation, revisions and limits', () => {
 describe('execution ownership and recovery', () => {
   it('serializes rooms using the same canonical repository path, including aliases', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'commonthread-lock-')); dirs.push(dir);
-    const alias = `${dir}-alias`; symlinkSync(dir, alias); dirs.push(alias);
+    const alias = `${dir}-alias`; symlinkSync(dir, alias, process.platform === 'win32' ? 'junction' : 'dir'); dirs.push(alias);
     const control = controlled(); const { engine } = setup(control.adapter);
     const a = engine.createRoom({ title: 'A', goal: 'A', repositoryPath: dir }, key());
     const b = engine.createRoom({ title: 'B', goal: 'B', repositoryPath: alias }, key());

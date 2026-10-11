@@ -84,6 +84,8 @@ export function buildPrompt(input: AdapterInput, options: { retrievalTools: bool
       `- Use \`handoff\` (recipient "${peer}", taskId "${context.task.id}") to ask ${peer} for work. A \`post_message\` never schedules work.`,
       `- Use \`complete_task\` with taskId "${context.task.id}" when the active task is done. Use \`request_user_input\` to ask the human.`,
       '- `publish_artifact`: omit artifactId/baseVersion for a new artifact; to update, give artifactId and the current version as baseVersion.',
+      '- To reference a newly published artifact in a handoff in this same turn, choose a UUID for artifactId, publish it first with baseVersion null, and reference version 1. Do not invent references to unpublished artifacts.',
+      '- A batch may contain at most one scheduling action: handoff, request_user_input, or complete_task. Other public contributions may accompany it.',
       '- `submit_review` must pin the exact `{artifactId, version}` you reviewed. Report findings honestly; an empty findings list means you found nothing.',
       '- Never claim you ran a command or test unless you actually did in this turn.',
       options.retrievalTools

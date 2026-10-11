@@ -120,7 +120,7 @@ export async function startHttpServer(engine: Engine, options: HttpOptions = {})
       }
     }
     if (method === 'GET' && url.pathname === '/') {
-      json(response, 200, { service: 'CommonThread conversation engine', simulatedDemo: true, ui: 'React UI is owned by feature/shared-room-ui; this branch provides the working API.', startup: 'npm run demo', health: '/api/health' }); return;
+      json(response, 200, { service: 'CommonThread', simulatedDemo: true, ui: 'Frontend build missing. Run npm run build, then restart the server.', startup: 'npm run demo', health: '/api/health' }); return;
     }
     throw new AppError('NOT_FOUND', 'Endpoint not found.', 404);
   }

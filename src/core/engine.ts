@@ -317,7 +317,7 @@ export class Engine {
               const parsed = z.strictObject({ type: z.enum(['text', 'activity']), text: z.string().max(8000) }).safeParse(event);
               if (!parsed.success) return;
               publicChars += parsed.data.text.length;
-              this.events.emit('change', { type: 'stream', roomId: room.id, turnId: turn.id, event: parsed.data } satisfies EngineEvent);
+              this.events.emit('change', { type: 'stream', roomId: room.id, turnId: turn.id, agent: turn.agent, event: parsed.data } satisfies EngineEvent);
             },
             retrieve: { message: id => this.getMessage(room.id, id), task: id => this.getTask(room.id, id), artifact: ref => this.getArtifact(room.id, ref) },
           }); break;

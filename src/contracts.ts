@@ -117,4 +117,4 @@ export interface Snapshot {
   sessions: Omit<Session, 'providerSessionId'>[]; artifacts: ArtifactVersion[]; reviews: Review[];
   pendingHumanMessageIds: string[]; activeTurnId: string | null;
 }
-export type EngineEvent = { type: 'snapshot'; roomId: string } | { type: 'stream'; roomId: string; turnId: string; event: StreamEvent };
+export type EngineEvent = { type: 'snapshot'; roomId: string } | { type: 'stream'; roomId: string; turnId: string; agent: AgentId; event: StreamEvent };
