@@ -85,22 +85,25 @@ Other env vars (all optional, see `.env.example`): `COMMONTHREAD_CLAUDE_MODEL`, 
 
 ## Engine registration (coordinate with Teammate 1)
 
-The engine branch currently has contracts/store/context only; the dispatcher and server composition have not landed. When they do, the server composition needs a small patch along these lines (engine owner applies it):
+The engine (merged at `1a316cd`) accepts `liveAdapters` and `repositoryGuard` in `new Engine(store, options)` and reports `live: true` only when **both** are present; live rooms also require a `repositoryPath`. The engine owner should apply this small patch to `src/server/main.ts` once teammate 4's guard exists (until then live stays disabled, which is correct):
 
 ```ts
-import { createLiveAdapters, liveCapabilities, liveConfigFromEnv } from '../adapters/live.js';
+import { createLiveAdapters, liveConfigFromEnv } from '../adapters/live.js';
 
 const liveConfig = liveConfigFromEnv();
-const liveAdapters = createLiveAdapters({
-  ...liveConfig,
-  // Supplied by teammate 4 once RepositoryGuard is registered; omit to stay read-only.
-  // policy: repositoryPolicy,
+const engine = new Engine(store, {
+  demoAdapters: createDemoAdapters(300),
+  turnTimeoutMs: Number(process.env.COMMONTHREAD_TURN_TIMEOUT_MS ?? 120_000),
+  ...(liveConfig.enabled && repositoryGuard ? {
+    liveAdapters: createLiveAdapters({ ...liveConfig /*, policy: repositoryPolicy from teammate 4 */ }),
+    repositoryGuard,
+  } : {}),
 });
-// Choose adapters by room.mode: demo rooms → demo adapters, live rooms → liveAdapters.
-// Expose liveCapabilities(liveConfig) in /api/bootstrap so the UI can disable live when off.
 ```
 
-`createLiveAdapters` returns `Record<'claude'|'codex', AgentAdapter>`. Each adapter refuses demo rooms and refuses to run when `enabled` is false, so registering it is fail-closed by default.
+`createLiveAdapters` returns `Record<'claude'|'codex', AgentAdapter>`. Each adapter also refuses demo rooms and refuses to run when `enabled` is false, so it is fail-closed even if registered early. `liveCapabilities(config)` gives a credential-free summary suitable for `/api/bootstrap`.
+
+The engine sets `session.state = 'resume_failed'` when an adapter throws `SessionResumeError`, and only retries `BeforeInvocationError` (which these adapters never throw), matching the adapter error table above.
 
 ## Repository integration (coordinate with Teammate 4)
 
