@@ -6,6 +6,8 @@ The repository began empty. Four human teammates each own one branch. The curren
 
 The complete product is a local shared room where a human, Claude, and Codex exchange explicit work requests, revise versioned results, and retain human control. A functioning engine alone is not the completed product. Do not present the demo as real provider work or a scaffold as a finished integration.
 
+**Engine pickup update:** the engine implementation now supplies the actual shared contracts, localhost API, offline demo, tests and root tooling. Merge `origin/feature/conversation-engine` as instructed below and read [engine status](docs/engine-status.md), [README](README.md) and [architecture](docs/architecture.md). The other three feature branches intentionally still begin with only the common handoff documents.
+
 ## Branches and file ownership
 
 | Branch | Owner | Owned implementation | Detailed brief |
