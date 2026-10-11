@@ -5,8 +5,9 @@
   "type": "module",
   "engines": { "node": ">=24.14.0 <25" },
   "scripts": {
-    "dev": "tsx watch src/server/main.ts",
-    "start": "node dist/server/server/main.js",
+    "dev": "npm run dev:server",
+    "dev:server": "node --env-file-if-exists=.env --import tsx --watch src/server/main.ts",
+    "start": "node --env-file-if-exists=.env dist/server/server/main.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",

@@ -62,8 +62,10 @@ export class Store {
     const result = this.db.prepare('INSERT INTO messages(id, room_id, data) VALUES (?, ?, ?)').run(value.id, value.roomId, JSON.stringify(value));
     return { ...value, seq: Number(result.lastInsertRowid) };
   }
-  messages(roomId: string, after = 0, limit = 10_000): Message[] {
-    const rows = this.db.prepare('SELECT seq, data FROM messages WHERE room_id = ? AND seq > ? ORDER BY seq LIMIT ?').all(roomId, after, limit) as (Row & { seq: number })[];
+  messages(roomId: string, after = 0, limit?: number): Message[] {
+    const rows = (limit === undefined
+      ? this.db.prepare('SELECT seq, data FROM messages WHERE room_id = ? AND seq > ? ORDER BY seq').all(roomId, after)
+      : this.db.prepare('SELECT seq, data FROM messages WHERE room_id = ? AND seq > ? ORDER BY seq LIMIT ?').all(roomId, after, limit)) as (Row & { seq: number })[];
     return rows.map(row => ({ ...JSON.parse(row.data) as Omit<Message, 'seq'>, seq: row.seq }));
   }
   message(id: string): Message | undefined {

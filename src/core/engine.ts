@@ -14,7 +14,7 @@ import { Store } from './store.js';
 
 const now = () => new Date().toISOString();
 const terminal = new Set<Run['status']>(['completed', 'failed', 'cancelled', 'interrupted']);
-interface Active { turn: Turn; controller: AbortController; cursor: number }
+interface Active { turn: Turn; controller: AbortController; cursor: number; deliveredMessageIds: Set<string> }
 export interface EngineOptions {
   demoAdapters: Adapters; liveAdapters?: Adapters; repositoryGuard?: RepositoryGuard;
   maxTurns?: number; maxCorrections?: number; turnTimeoutMs?: number; maxRetries?: number;
@@ -107,7 +107,7 @@ export class Engine {
       tasks: this.store.list('tasks', roomId), turns: this.store.list('turns', roomId),
       sessions: this.store.list('sessions', roomId).map(({ providerSessionId: _provider, ...session }) => session),
       artifacts: this.store.list('artifacts', roomId), reviews: this.store.list('reviews', roomId),
-      pendingHumanMessageIds: active ? messages.filter(m => m.author === 'human' && m.seq > active.cursor).map(m => m.id) : [],
+      pendingHumanMessageIds: active ? messages.filter(m => m.author === 'human' && m.seq > active.cursor && !active.deliveredMessageIds.has(m.id)).map(m => m.id) : [],
       activeTurnId: active?.turn.id ?? null,
     };
   }
@@ -212,10 +212,13 @@ export class Engine {
   private recoverOnStart(): void {
     this.store.transaction(() => {
       for (const run of this.store.list('runs')) {
-        if (terminal.has(run.status)) continue;
         const turns = this.store.list('turns', run.roomId).filter(t => t.runId === run.id);
         const interrupted = turns.filter(t => t.status === 'running');
         for (const turn of interrupted) { turn.status = 'interrupted'; turn.errorCode = 'PROCESS_RESTART'; this.store.put('turns', turn); }
+        if (terminal.has(run.status)) {
+          if (interrupted.length) this.append(run.roomId, 'system', 'error', 'The server restarted before an in-flight call settled. This inactive run remains inactive; underlying execution may have continued.', { runId: run.id });
+          continue;
+        }
         if (interrupted.length || turns.some(t => t.status === 'queued')) {
           run.status = 'interrupted'; run.generation++; run.reason = 'Server restarted. In-flight side effects may have occurred. Review work and explicitly acknowledge recovery; no turn was replayed.'; run.updatedAt = now();
           this.store.put('runs', run);
@@ -241,7 +244,7 @@ export class Engine {
       if (run.turnCount >= run.maxTurns) { this.pauseLimit(run, 'agent turn limit reached'); continue; }
       if (room.repositoryPath && this.repositoryOwners.has(room.repositoryPath)) continue;
       const controller = new AbortController();
-      this.active.set(room.id, { turn: next, controller, cursor: 0 });
+      this.active.set(room.id, { turn: next, controller, cursor: 0, deliveredMessageIds: new Set() });
       if (room.repositoryPath) this.repositoryOwners.set(room.repositoryPath, next.id);
       const pump = this.execute(room, run, next, controller).catch(() => {
         // Unexpected engine failures are surfaced without raw exception details or provider secrets.
@@ -273,6 +276,7 @@ export class Engine {
     let session = this.session(room.id, turn.agent);
     const context = buildContext(this.store, room, turn, session, this.getTask(room.id, turn.taskId));
     this.active.get(room.id)!.cursor = context.deliveryCursor;
+    this.active.get(room.id)!.deliveredMessageIds = new Set([...context.messages, ...context.humanGuidance, ...context.referencedMessages].map(message => message.id));
     this.store.transaction(() => {
       turn.status = 'running'; turn.startedAt = now(); this.store.put('turns', turn);
       run.turnCount++; run.updatedAt = now(); this.store.put('runs', run);

@@ -28,8 +28,8 @@ export function buildContext(store: Store, room: Room, turn: Turn, session: Sess
   });
   const answered = new Set(history.filter(message => message.author === 'human').map(message => message.replyTo));
   return {
-    agent: turn.agent, goal: room.goal.slice(0, 4000), task: { ...task, title: task.title.slice(0, 1500), summary: task.summary?.slice(0, 2000), unresolvedIssues: task.unresolvedIssues.slice(0, 8).map(issue => issue.slice(0, 500)) },
-    request: turn.request.slice(0, 4000),
+    agent: turn.agent, goal: room.goal, task: { ...task, title: task.title.slice(0, 1500), summary: task.summary?.slice(0, 2000), unresolvedIssues: task.unresolvedIssues.slice(0, 8).map(issue => issue.slice(0, 500)) },
+    request: turn.request,
     humanGuidance: history.filter(message => message.author === 'human').slice(-8).map(bound),
     messages, referencedMessages,
     decisions: history.filter(message => message.kind === 'decision').slice(-5).map(bound),

@@ -188,6 +188,16 @@ describe('validation, revisions and limits', () => {
     expect(engine.snapshot(room.id).reviews).toEqual([]);
     expect(engine.snapshot(room.id).turns[0]?.errorCode).toBe('INVALID_AGENT_OUTPUT');
   });
+  it('rejects duplicate handoffs in a batch without creating either queued turn', async () => {
+    const { engine, room } = setup({ execute: async input => {
+      const handoff = { type: 'handoff', recipient: 'codex', taskId: input.turn.taskId, request: 'Review' };
+      return { actions: [handoff, handoff] };
+    } });
+    engine.postHuman(room.id, { body: 'Start', recipient: 'claude' }, key()); await engine.waitForIdle();
+    expect(engine.snapshot(room.id).turns).toHaveLength(1);
+    expect(engine.snapshot(room.id).messages.filter(m => m.kind === 'handoff')).toHaveLength(0);
+    expect(engine.snapshot(room.id).turns[0]?.errorCode).toBe('CONFLICTING_ACTIONS');
+  });
   it('allows only bounded retries before provider invocation', async () => {
     const execute = vi.fn(async (): Promise<AdapterResult> => { throw new BeforeInvocationError(); });
     const { engine, room } = setup({ execute }, { maxRetries: 1 });
@@ -264,6 +274,17 @@ describe('execution ownership and recovery', () => {
   it('fails closed for live mode without safety integrations', () => {
     const { engine } = setup();
     expect(() => engine.createRoom({ title: 'Live', goal: 'Work', mode: 'live', repositoryPath: process.cwd() }, key())).toThrow(/unavailable/);
+  });
+  it('recovers a crash after stop without reviving the cancelled run', async () => {
+    const control = controlled(); const { engine, room, store } = setup(control.adapter);
+    engine.postHuman(room.id, { body: 'Start', recipient: 'claude' }, key()); await started(control);
+    engine.control(room.id, { action: 'stop' }, key());
+    const restored = new Engine(store, { demoAdapters: createDemoAdapters(0) });
+    expect(restored.snapshot(room.id).run?.status).toBe('cancelled');
+    expect(restored.snapshot(room.id).turns[0]?.status).toBe('interrupted');
+    expect(restored.snapshot(room.id).messages.at(-1)?.body).toContain('may have continued');
+    await restored.shutdown();
+    control.replies[0]!.resolve(complete(control.inputs[0]!)); await engine.waitForIdle();
   });
   it('runs registered repository guards inside execution ownership for live turns', async () => {
     const order: string[] = [];
