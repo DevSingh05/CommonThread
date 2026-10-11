@@ -124,6 +124,12 @@ Credentialed smoke (makes real, billable requests; opt-in):
 COMMONTHREAD_LIVE_SMOKE=1 npm run smoke:providers
 ```
 
+Windows PowerShell (from the `CommonThread` folder):
+
+```powershell
+$env:COMMONTHREAD_LIVE_SMOKE = "1"; npm run smoke:providers
+```
+
 It drives Claude → Codex → Claude directly through the live adapters with an in-memory context (not the engine dispatcher) and checks each step returned the expected structured handoff/completion, printing provider session IDs and reported usage.
 
 ## Live verification status
