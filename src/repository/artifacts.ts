@@ -42,4 +42,19 @@ export class RepositoryArtifacts {
     return this.store.list('artifacts', roomId).filter(artifact => artifact.artifactId === artifactId).sort((a, b) => a.version - b.version);
   }
 
+  /** Bounded line replacement: common prefix/suffix preserved, no quadratic LCS allocation. */
+  textDiff(roomId: string, before: ArtifactRef, after: ArtifactRef): string {
+    const left = this.read(roomId, before); const right = this.read(roomId, after);
+    invariant(left.artifactId === right.artifactId, 'INVALID_REFERENCE', 'Text history diff requires versions of one artifact.');
+    invariant(left.content.length + right.content.length <= 200_000, 'EVIDENCE_LIMIT', 'Text diff exceeds its size limit.');
+    const a = left.content.split('\n'); const b = right.content.split('\n');
+    let start = 0; let end = 0;
+    while (start < a.length && start < b.length && a[start] === b[start]) start++;
+    if (start === a.length && start === b.length) return '';
+    while (end < a.length - start && end < b.length - start && a[a.length - 1 - end] === b[b.length - 1 - end]) end++;
+    const removed = a.slice(start, a.length - end); const added = b.slice(start, b.length - end);
+    return [`--- version ${before.version}`, `+++ version ${after.version}`,
+      `@@ -${removed.length ? start + 1 : start},${removed.length} +${added.length ? start + 1 : start},${added.length} @@`,
+      ...removed.map(line => `-${line}`), ...added.map(line => `+${line}`)].join('\n');
+  }
 }

@@ -1,14 +1,17 @@
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ArtifactRef, Room, Task, Turn } from '../src/contracts.js';
+import type { AdapterInput, ArtifactRef, Room, Task, Turn } from '../src/contracts.js';
+import { actionSchema } from '../src/contracts.js';
+import { createDemoAdapters } from '../src/adapters/demo.js';
+import { Engine } from '../src/core/engine.js';
 import { Store } from '../src/core/store.js';
 import { createRepositoryGuard, canonicalizeRepository, captureStableSnapshot, type GuardOptions } from '../src/repository/index.js';
 
-const dirs: string[] = []; const stores: Store[] = [];
+const dirs: string[] = []; const stores: Store[] = []; const engines: Engine[] = [];
 const key = () => randomUUID();
 function repository() {
   const root = mkdtempSync(join(tmpdir(), 'commonthread-guard-')); dirs.push(root);
@@ -33,7 +36,8 @@ function setup(options: GuardOptions = {}, database = ':memory:') {
 function journal(store: Store, room: Room) {
   return store.list('artifacts', room.id).filter(artifact => artifact.title === 'Repository evidence: journal').map(artifact => ({ artifact, data: JSON.parse(artifact.content) }));
 }
-afterEach(() => {
+afterEach(async () => {
+  for (const engine of engines.splice(0)) await engine.shutdown(3000);
   for (const store of stores.splice(0)) store.close();
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
@@ -164,3 +168,48 @@ describe('command evidence provenance and execution policy', { timeout: 60_000 }
   });
 });
 
+describe('engine integration with repository-owned hooks', { timeout: 60_000 }, () => {
+  it('serializes two rooms through a directory alias and releases ownership after provider failure', async () => {
+    const root = repository(); const aliasParent = mkdtempSync(join(tmpdir(), 'commonthread-guard-alias-')); dirs.push(aliasParent);
+    const alias = join(aliasParent, 'alias'); symlinkSync(root, alias, 'junction');
+    const store = new Store(); stores.push(store); const guard = createRepositoryGuard(store);
+    const inputs: AdapterInput[] = []; let release!: () => void;
+    const wait = new Promise<void>(resolve => { release = resolve; });
+    const adapter = { async execute(input: AdapterInput) {
+      inputs.push(input); if (inputs.length === 1) { await wait; throw new Error('provider failure'); }
+      return { actions: [{ type: 'complete_task', taskId: input.turn.taskId, summary: 'Offline integration check completed' }] };
+    } };
+    const engine = new Engine(store, { demoAdapters: createDemoAdapters(0), liveAdapters: { claude: adapter, codex: adapter }, repositoryGuard: guard }); engines.push(engine);
+    const a = engine.createRoom({ title: 'A', goal: 'Inspect', mode: 'live', repositoryPath: root }, key());
+    const b = engine.createRoom({ title: 'B', goal: 'Inspect', mode: 'live', repositoryPath: alias }, key());
+    engine.postHuman(a.id, { body: 'Inspect', recipient: 'claude' }, key());
+    engine.postHuman(b.id, { body: 'Inspect', recipient: 'codex' }, key());
+    await vi.waitFor(() => expect(inputs).toHaveLength(1), { timeout: 5000 });
+    expect(engine.snapshot(b.id).turns[0]?.status).toBe('queued');
+    release(); await engine.waitForIdle(10_000);
+    expect(inputs).toHaveLength(2);
+    expect(engine.snapshot(a.id).turns[0]?.status).toBe('failed');
+    expect(engine.snapshot(b.id).turns[0]?.status).toBe('completed');
+    expect(journal(store, a).at(-1)!.data.outcome).toBe('failed');
+  });
+  it('keeps a review pinned to captured v1 after v2 publication and rejects malformed findings', async () => {
+    const root = repository(); const store = new Store(); stores.push(store); const guard = createRepositoryGuard(store);
+    let oldRef: ArtifactRef | undefined;
+    const adapter = { async execute(input: AdapterInput) {
+      const snapshots = store.list('artifacts', input.room.id).filter(artifact => artifact.title === 'Repository evidence: journal');
+      oldRef ??= { artifactId: snapshots[0]!.artifactId, version: 1 };
+      return { actions: [{ type: 'submit_review', artifactRef: oldRef, summary: 'Review of captured v1', findings: [{ id: key(), severity: 'info', file: 'code.txt', line: 1, explanation: 'Offline inspection', evidence: 'Captured bytes', nextAction: 'Human inspection' }] },
+        { type: 'complete_task', taskId: input.turn.taskId, summary: 'Review recorded' }] };
+    } };
+    const engine = new Engine(store, { demoAdapters: createDemoAdapters(0), liveAdapters: { claude: adapter, codex: adapter }, repositoryGuard: guard }); engines.push(engine);
+    const room = engine.createRoom({ title: 'Review', goal: 'Inspect', mode: 'live', repositoryPath: root }, key());
+    engine.postHuman(room.id, { body: 'Inspect', recipient: 'codex' }, key()); await engine.waitForIdle(10_000);
+    expect(engine.snapshot(room.id).reviews[0]?.artifactRef).toEqual(oldRef);
+    expect(guard.artifacts.history(room.id, oldRef!.artifactId)).toHaveLength(2);
+    const diff = guard.artifacts.textDiff(room.id, oldRef!, { ...oldRef!, version: 2 });
+    expect(diff).toContain('--- version 1'); expect(diff).toContain('+++ version 2');
+    const bad = { type: 'submit_review', artifactRef: oldRef, summary: 'Claim', findings: [{ severity: 'critical', file: '../escape', line: 0 }] };
+    expect(() => actionSchema.parse(bad)).toThrow();
+    expect(() => guard.artifacts.read(key(), oldRef!)).toThrow(/another room/);
+  });
+});
