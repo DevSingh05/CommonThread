@@ -32,7 +32,7 @@ Every method/option used below was checked in the installed type definitions. No
 | Streaming public output | `includePartialMessages`; only top-level `text_delta` is emitted as `text`; `thinking_delta` is never emitted; `tool_use` blocks → `activity` summaries | Only `activity` summaries for command/file/MCP/web-search/error items. `reasoning` items are never emitted; `agent_message` is the JSON result and is not streamed |
 | Cancellation | Turn `AbortSignal` → SDK `abortController`. `ProviderCancelledError.confirmed=true` only when SDK threw `AbortError` | Turn `AbortSignal` → `TurnOptions.signal`. Always reported `confirmed=false` (the SDK gives no terminal confirmation) |
 | Permissions | `tools` limited to policy (`Read`,`Grep`,`Glob` [+`Edit`,`Write`]); `permissionMode: 'default'` + `canUseTool` denies anything else and any path outside `cwd` (symlinks resolved); denials surfaced as `activity`. `settingSources: []`, `strictMcpConfig: true` so user/project settings and MCP servers cannot widen access | `sandboxMode` `read-only` / `workspace-write`, `approvalPolicy: 'never'` (no interactive approval surface exists in the SDK, so anything outside the sandbox fails closed), `networkAccessEnabled: false`, `webSearchMode: 'disabled'` |
-| Usage | `result.usage.input_tokens/output_tokens` → `reported`; else `unavailable`. Cost (`total_cost_usd`) is **not** surfaced (it is an SDK estimate, and contracts forbid invented pricing) | `turn.completed.usage.input_tokens/output_tokens` → `reported`; else `unavailable` |
+| Usage | `result.usage` `input_tokens + cache_read_input_tokens + cache_creation_input_tokens` / `output_tokens` → `reported`; else `unavailable`. Cost (`total_cost_usd`) is **not** surfaced (it is an SDK estimate, and contracts forbid invented pricing) | `turn.completed.usage.input_tokens/output_tokens` → `reported`; else `unavailable` |
 | Limits | `maxTurns` (default 24, `COMMONTHREAD_CLAUDE_MAX_TURNS`), optional `maxBudgetUsd` | Engine turn timeout via AbortSignal; Codex has no per-turn max-steps option in this SDK version |
 
 Bash is never exposed to Claude. Shell execution for Codex happens only inside its OS sandbox; in `read-only` mode commands can read but not write.
@@ -134,11 +134,12 @@ It drives Claude → Codex → Claude directly through the live adapters with an
 
 ## Live verification status
 
-See [providers-status.md](providers-status.md) for the latest recorded live outcome. Until a recorded successful smoke run exists there, **live behavior is unverified**.
+See [providers-status.md](providers-status.md) for the latest recorded live outcome. As of 2026-10-11 the adapter-level smoke test **passed** with real Claude and Codex sessions, including resuming Claude's session. The full engine-driven room flow is still unverified because the dispatcher has not landed.
 
 ## Known limitations
 
 - Codex has no custom-tool hook in this SDK, so it cannot fetch arbitrary message/task/artifact IDs on demand; it gets bounded inlined context only.
 - Codex cancellation and Claude cancellation are best-effort; neither proves remote side effects stopped.
 - No interactive permission prompts reach the human yet: denials fail closed and are surfaced as activity. An additive permission lifecycle contract (pending request → human decision) would need to be agreed with the engine owner.
-- Claude's in-process MCP tool trust is keyed on `mcpServer.source === 'sdk'`; on older CLIs that omit this field, retrieval tools are still pre-approved via `allowedTools`.
+- Claude's in-process retrieval tools are approved in `canUseTool` only when `mcpServer.source === 'sdk'` and the server name is `commonthread`; a CLI that omits that field would deny them (fail closed).
+- Windows: if the SDK reports "Native CLI binary for win32-x64 not found", run `npm install` again so npm fetches the optional `@anthropic-ai/claude-agent-sdk-win32-x64` package.

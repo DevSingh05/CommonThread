@@ -38,6 +38,7 @@ describe('Claude adapter (mocked Agent SDK)', () => {
       yield msg({ type: 'stream_event', parent_tool_use_id: null, event: { type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: 'secret reasoning' } } });
       yield msg({ type: 'stream_event', parent_tool_use_id: null, event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Reading the plan.' } } });
       yield msg({ type: 'assistant', parent_tool_use_id: null, message: { content: [{ type: 'tool_use', id: 't1', name: 'Read', input: { file_path: 'plan.md' } }] } });
+      yield msg({ type: 'assistant', parent_tool_use_id: null, message: { content: [{ type: 'tool_use', id: 't2', name: 'StructuredOutput', input: {} }] } });
       yield result(handoffTo('codex'));
     });
     const { input, events } = makeInput('claude');
@@ -53,7 +54,8 @@ describe('Claude adapter (mocked Agent SDK)', () => {
     expect(options.permissionMode).toBe('default');
     expect(options.outputFormat?.type).toBe('json_schema');
     expect(options.mcpServers?.commonthread).toBeDefined();
-    expect(options.allowedTools).toEqual(['mcp__commonthread__get_message', 'mcp__commonthread__get_task', 'mcp__commonthread__get_artifact']);
+    // Retrieval tools are gated by canUseTool (source === 'sdk'), not pre-approved via allowedTools.
+    expect(options.allowedTools).toBeUndefined();
   });
 
   it('resumes the stored session and fails explicitly if the SDK starts a different one', async () => {
@@ -77,6 +79,11 @@ describe('Claude adapter (mocked Agent SDK)', () => {
     await expect(createClaudeAdapter({ policy, query: none.query }).execute(makeInput('claude').input)).rejects.toBeInstanceOf(ProviderOutputError);
     const failed = fakeClaude(async function* () { yield init(); yield msg({ type: 'result', subtype: 'error_max_turns', is_error: true, session_id: SESSION, errors: [], usage: {}, permission_denials: [] }); });
     await expect(createClaudeAdapter({ policy, query: failed.query }).execute(makeInput('claude').input)).rejects.toThrow(/error_max_turns/);
+  });
+
+  it('counts cached prompt tokens as input (Anthropic reports them separately)', async () => {
+    const { query } = fakeClaude(async function* () { yield init(); yield result(handoffTo('codex'), { usage: { input_tokens: 2, cache_read_input_tokens: 9000, cache_creation_input_tokens: 1000, output_tokens: 332 } }); });
+    expect((await createClaudeAdapter({ policy, query }).execute(makeInput('claude').input)).usage).toEqual({ kind: 'reported', inputTokens: 10002, outputTokens: 332 });
   });
 
   it('reports usage as unavailable when the SDK omits it', async () => {

@@ -26,8 +26,8 @@ export interface ClaudeAdapterOptions {
 }
 
 const SERVER = 'commonthread';
-const sdkToolName = (name: string) => `mcp__${SERVER}__${name}`;
-const RETRIEVAL_TOOLS = ['get_message', 'get_task', 'get_artifact'].map(sdkToolName);
+// The SDK's built-in tool that carries `outputFormat` results (observed in the live smoke run); not public activity.
+const STRUCTURED_OUTPUT_TOOL = 'StructuredOutput';
 
 const text = (value: unknown) => ({ content: [{ type: 'text' as const, text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }] });
 const failure = (message: string) => ({ ...text(message), isError: true });
@@ -65,6 +65,12 @@ function summarizeToolUse(name: string, input: unknown): string {
   return `${name.replace(`mcp__${SERVER}__`, 'commonthread.')}${target ? ` ${String(target).slice(0, 200)}` : ''}`;
 }
 
+/** Anthropic `input_tokens` excludes cache reads/writes; report the full prompt size the turn consumed. */
+function claudeUsage(usage: { input_tokens?: number | null; output_tokens?: number | null; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null } | undefined): Usage {
+  if (typeof usage?.input_tokens !== 'number') return { kind: 'unavailable' };
+  return reportedUsage(usage.input_tokens + (usage.cache_read_input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0), usage.output_tokens);
+}
+
 export function createClaudeAdapter(options: ClaudeAdapterOptions): AgentAdapter {
   const runQuery = options.query ?? (sdkQuery as ClaudeQuery);
   return {
@@ -88,7 +94,6 @@ export function createClaudeAdapter(options: ClaudeAdapterOptions): AgentAdapter
         abortController,
         cwd: policy.cwd,
         tools: claudeToolsFor(policy),
-        allowedTools: RETRIEVAL_TOOLS,
         mcpServers: { [SERVER]: retrievalServer(input) },
         strictMcpConfig: true,
         settingSources: [],
@@ -121,12 +126,12 @@ export function createClaudeAdapter(options: ClaudeAdapterOptions): AgentAdapter
             }
           } else if (message.type === 'assistant' && message.parent_tool_use_id === null) {
             for (const block of message.message.content) {
-              if (block.type === 'tool_use') input.emit({ type: 'activity', text: `Tool: ${summarizeToolUse(block.name, block.input)}` });
+              if (block.type === 'tool_use' && block.name !== STRUCTURED_OUTPUT_TOOL) input.emit({ type: 'activity', text: `Tool: ${summarizeToolUse(block.name, block.input)}` });
             }
           } else if (message.type === 'result') {
             sawResult = true;
             sessionId ??= message.session_id;
-            usage = reportedUsage(message.usage?.input_tokens, message.usage?.output_tokens);
+            usage = claudeUsage(message.usage);
             if (message.subtype === 'success' && !message.is_error) structured = message.structured_output;
             else resultError = message.subtype === 'success' ? 'Claude reported an error result.' : `Claude stopped: ${message.subtype}${message.errors?.length ? ` (${sanitizeError(message.errors.join('; '))})` : ''}`;
             if (message.permission_denials?.length) {
