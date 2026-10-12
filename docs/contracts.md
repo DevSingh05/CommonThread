@@ -48,5 +48,5 @@ Message input: `body`, optional `recipient` (`claude`/`codex`), `replyTo`. A rec
 
 ## Repository boundary
 
-Engine owns canonical-path execution exclusion. Repository teammate supplies `RepositoryGuard.beforeTurn({room,turn,signal})` and `afterTurn(...)` to inspect baseline, preserve dirty state, detect changes, capture immutable diff/evidence, and configure supported read-only reviews. Engine must acquire repository ownership before calling either hook and release only after execution settles. Any shell/process execution must use argument arrays, no interpolated user shell strings. This interface can be extended additively with the engine owner.
+Engine owns canonical-path execution exclusion. The repository safety layer supplies `RepositoryGuard.beforeTurn({room,turn,signal})` and `afterTurn(...)` to inspect baseline, preserve dirty state, detect changes, capture immutable diff/evidence, and configure supported read-only reviews. Engine must acquire repository ownership before calling either hook and release only after execution settles. Any shell/process execution must use argument arrays, no interpolated user shell strings.
 

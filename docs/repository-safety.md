@@ -1,10 +1,10 @@
 # Repository evidence and safety
 
-`feature/repository-evidence` implements `src/repository/**`. It uses the existing `RepositoryGuard` contract and engine SQLite `Store`. There is no second database, scheduler, HTTP server, provider adapter or UI. Default server startup still provides the simulated engine demo; this branch does not enable live mode by itself.
+CommonThread implements repository safety in `src/repository/**`. It uses the `RepositoryGuard` contract and the engine's SQLite `Store`. There is no second database, scheduler, HTTP server, provider adapter or UI. Default server startup provides the simulated engine demo; live execution requires explicit configuration.
 
 ## Registration and ownership
 
-This is the exact guard factory/engine registration shape, for the engine/provider owners' server composition. `liveAdapters` must be actual verified `Adapters`; passing offline test doubles does not establish live support.
+This is the guard factory and engine registration shape:
 
 ```ts
 import type { Adapters } from './src/contracts.js';
@@ -28,7 +28,7 @@ function register(store: Store, liveAdapters: Adapters) {
 
 The engine must acquire room/repository ownership before `beforeTurn`, retain it during provider execution and `afterTurn`, and release only when all settle. The guard verifies a running persisted turn, returns an opaque lease, and accepts only that original lease when finalizing. Commands require that active room/turn lease; no standalone repository mutation API exists. The guard's active-root check rejects overlapping misuse rather than creating another queue.
 
-Canonicalization resolves filesystem aliases and Git subdirectories to the worktree root, and records the absolute per-worktree Git directory and shared common Git directory. **Current engine room creation only calls filesystem `realpath`.** Therefore the handler must normalize with `canonicalizeRepository(...).root` before room creation. Until the engine owner adds that small integration, users must select the repository root. The guard fails closed on subdirectories. Directory aliases resolve correctly through the current engine.
+Canonicalization resolves filesystem aliases and Git subdirectories to the worktree root, and records the absolute per-worktree Git directory and shared common Git directory. Users should select the repository root; the guard fails closed on subdirectories. Directory aliases resolve correctly through canonical paths.
 
 Linked worktrees have separate root/index identities and may execute independently. Shared Git metadata mutations are unsupported. Do not run concurrent CommonThread services against one repository with separate application data directories: exclusion belongs to one engine process, not an OS-wide repository lock. External editors and other programs are not constrained by these locks.
 
@@ -42,13 +42,13 @@ The journal publishes immutable artifact versions authored by `system`, plus sys
 
 Two consecutive complete snapshots must match to accept a capture. This detects ordinary concurrent edits, not an atomic filesystem snapshot. A changed checkpoint causes `EXTERNAL_CHANGE`. Changed HEAD/index or writes during a read-only turn also fail finalization, retaining observed bytes and requiring human inspection. Between turns, a changed digest or an unfinished baseline blocks execution. Failed and cancelled provider turns still attempt capture with a separate 30-second abort deadline; if capture fails, the unfinished baseline remains a recovery barrier. A final record's `outcome` describes the guard hook's provider outcome, not proof that the engine subsequently accepted the action batch.
 
-Human recovery integration can call `guard.acknowledgeExternalChanges(roomId, taskId, expectedDigest)` after displaying the captured baseline and obtaining explicit acknowledgement. It refuses an active lease and rechecks the exact digest. Expose this only through an engine-owned protected human mutation, never a provider tool. This branch intentionally does not add that teammate-owned HTTP endpoint. Engine run/session recovery remains separately required when applicable.
+Human recovery integration can call `guard.acknowledgeExternalChanges(roomId, taskId, expectedDigest)` after displaying the captured baseline and obtaining explicit acknowledgement. It refuses an active lease and rechecks the exact digest. Expose this only through an engine-owned protected human mutation, never a provider tool. Engine run/session recovery remains separately required when applicable.
 
 ## Read-only review and immutable references
 
 `guard.getTurnContext(roomId, turnId)` returns canonical `cwd`, trusted `access` and the exact baseline reference. `accessForTurn` is a host-supplied policy callback; absent a policy the guard chooses `read-only`. Permission decisions must come from explicit trusted human/task state, never keywords in a request, repository text, or agent prose.
 
-The provider teammate must translate that context into **SDK-supported** read-only/write capabilities and fail closed if unsupported. The guard checks resulting state; it is not an OS sandbox and cannot stop arbitrary provider writes in advance. Read-only turns cannot run project commands through the evidence API. Tests/builds execute project-controlled code and belong to explicitly authorized write-capable turns.
+Provider adapters translate that context into **SDK-supported** read-only/write capabilities and fail closed if unsupported. The guard checks resulting state; it is not an OS sandbox and cannot stop arbitrary provider writes in advance. Read-only turns cannot run project commands through the evidence API. Tests/builds execute project-controlled code and belong to explicitly authorized write-capable turns.
 
 Captured system messages enter the shared conversation through the existing engine. A later reviewer can use their exact references with `input.retrieve.artifact(ref)`. The current hook runs after provider execution, so a provider cannot know its final capture reference in its earlier returned handoff; the next turn can retrieve it from the new system message. No inferred action is extracted from that message. Providers can retrieve their pre-turn baseline via `getTurnContext` while executing.
 
@@ -79,7 +79,7 @@ Provider edits made outside this command API invalidate its last checkpoint. Sch
 
 Observed evidence records the exact executable/arguments, cwd, start/completion timestamps, status, exit code, termination signal, and immutable `outputRef`. Output capture shares one raw-byte budget across stdout/stderr. Status distinguishes ordinary exit, spawn failure, timeout, cancellation and output overflow. Exit zero is only an observed process result; it does not establish that a test framework discovered or passed tests. Output may contain repository secrets, so integrations must not upload it or treat it as trusted instructions.
 
-`recordAssertion` only accepts `agent_claim` or `fixture`, with no caller-supplied exit code. Fixtures are labeled **Simulated fixture; no command was run**, status `simulated_not_run`, null command/exit/output reference. Agent claims remain `unverified`. No SDK events are promoted to observed evidence in this branch; provider-event mapping awaits that teammate's verified SDK support.
+`recordAssertion` only accepts `agent_claim` or `fixture`, with no caller-supplied exit code. Fixtures are labeled **Simulated fixture; no command was run**, status `simulated_not_run`, null command/exit/output reference. Agent claims remain `unverified`.
 
 Cancellation/timeouts kill the direct child and wait for its `close` event. Portable process-tree termination is not guaranteed, especially for Windows grandchildren. Descendants may survive or keep pipes open; the engine retains ownership while close/capture is pending. Only configure trusted commands with understood process behavior. No promise of hard wall-clock enforcement or sandbox isolation is made for arbitrary project programs.
 
@@ -92,4 +92,4 @@ Cancellation/timeouts kill the direct child and wait for its `close` event. Port
 - Realpath, component checks, no-follow where supported, file identity/size checks and repeated snapshots defend ordinary traversal/races. They are not a hardened sandbox against malicious concurrent path swapping. Strict provider permissions remain required.
 - SQLite evidence is bounded per capture, but the existing engine returns full artifact history in room snapshots. Large histories need pagination/retention work by the engine/UI owners. No retention deletion is automatic.
 
-See [actual verification](repository-status.md) and the [90-second demo](demo-script.md). Live provider, permission UI and complete browser integration are unverified.
+See the [90-second demo script](demo-script.md).

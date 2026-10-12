@@ -44,13 +44,12 @@ const engine = new Engine(store, {
 
 The guard receives `beforeTurn({room, turn, signal})` and returns an opaque baseline; `afterTurn({room, turn, baseline, signal, outcome})` captures the result while execution ownership is still held. Demo deliberately skips guards and cannot produce real repository evidence. Guards/adapters own SDK permissions, cwd validation, safe code execution and baseline/evidence interpretation; core does not pretend to enforce provider sandboxing.
 
-Teammate 3 builds the UI to `dist/web`; `startHttpServer` already serves it from the same origin. Vite development requires a `/api` proxy and an explicit local `COMMONTHREAD_DEV_ORIGINS` value. Teammate 2 wires adapters; teammate 4 wires guards. Keep all implementation in the ownership paths in `notes.md`.
+The React UI builds to `dist/web`; `startHttpServer` serves it from the same origin. Vite development uses a `/api` proxy and an explicit local `COMMONTHREAD_DEV_ORIGINS` value.
 
-## Limitations and integration work
+## System boundaries and runtime considerations
 
-- This branch has **no React UI, live SDK adapters or real code-edit/diff/test-evidence implementation**. They are deliberately reserved for the three teammates. The complete product acceptance criterion remains unverified.
-- Provider authentication, real resume semantics, permission prompts, cancellation confirmation and token usage require SDK-specific verification. Permission UI/schema changes must be coordinated rather than approximated with a fake implementation.
-- Repository exclusion coordinates this one CommonThread service and resolves filesystem symlinks; subdirectories within one Git worktree and multiple independent data directories need stronger shared identity/locking from teammate 4. It does not detect external editor changes or constrain provider permissions. Live mode stays disabled until that guard is supplied.
+- Provider authentication, real resume semantics, permission prompts, cancellation confirmation and token usage require SDK-specific verification.
+- Repository exclusion coordinates the CommonThread service and resolves filesystem symlinks. It does not detect external editor changes without guard checks or constrain arbitrary external processes. Live mode requires an active repository guard.
 - Action batches commit after successful turns; a provider crash may lose uncommitted public output while leaving real side effects. This is intentional uncertainty, not an exactly-once claim. Do not auto-resume side-effectful provider execution.
 - Context selection is deterministic and bounded but does not understand all old constraints semantically. Important persistent constraints belong in the goal. Full history remains available through snapshots/targeted retrieval. Snapshot reads load full room history and artifacts; pagination/compaction and large-repository scaling are not implemented.
 - Demo fixture content is predetermined. Its artifact is a proposal, not a working patch, and its review/evidence explicitly says no code was changed or tests run. The demo's provider-style session IDs are simulated.

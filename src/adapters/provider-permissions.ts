@@ -5,7 +5,7 @@ import type { AdapterInput } from '../contracts.js';
 /**
  * Execution policy for one provider turn. Defaults are fail-closed: read-only, no shell,
  * no network. Write access must be granted explicitly by a resolver supplied once the
- * repository guard (teammate 4) is registered.
+ * repository guard is registered.
  */
 export type AccessMode = 'read_only' | 'workspace_write';
 export interface ExecutionPolicy {

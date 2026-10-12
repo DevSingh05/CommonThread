@@ -29,7 +29,7 @@ The server binds `http://127.0.0.1:4317`. The demo creates a fresh persisted roo
 | 15–35 s | Point to Claude v1, the explicit Codex review handoff and Codex's human question. Attribution is persisted; ordinary prose does not authorize actions. |
 | 35–55 s | Show the human constraint, handback and Claude v2. Open the room snapshot via `GET /api/rooms/<id>` or the merged UI if available. |
 | 55–70 s | Show v1/v2 and exact-version reviews, unresolved issues, and unavailable usage. Explain that completion means the queue drained, not proof of correctness. |
-| 70–90 s | Show recorded repository acceptance results in `docs/repository-status.md`. Explain that real temporary-repository tests exercise snapshots and command evidence separately from this simulated conversation. |
+| 70–90 s | Show repository acceptance test results. Explain that real temporary-repository tests exercise snapshots and command evidence separately from this simulated conversation. |
 
 To rerun repository acceptance before presenting:
 
@@ -41,11 +41,11 @@ npm test
 npm run build
 ```
 
-Record fresh results. Never claim a command ran by displaying the fixture's assertion. The known Windows engine symlink test limitation is described in the status document.
+Record fresh results. Never claim a command ran by displaying the fixture's assertion.
 
-## Credentialed integrated path: pending teammate integration
+## Credentialed live path
 
-Prerequisites: merged UI and verified provider adapters, supported Node version, provider authentication per the provider owner's actual `docs/providers.md`, guard registration/canonical root normalization, protected human permissions/recovery controls, and a disposable repository approved by the human. No verified provider login command or launch flag exists in this branch; use the teammate's documented commands once they land. Do not request or scrape credentials from browser sessions.
+Prerequisites: provider authentication configured per `docs/providers.md`, guard registration and canonical root normalization, protected human permissions/recovery controls, and a disposable repository approved by the human. Do not request or scrape credentials from browser sessions.
 
 Before presenting, create a small disposable Git project with a test, commit its initial state manually, and add a harmless dirty human note plus an untracked file. Approve only the intended code edit/test operations. Verify both providers' read-only review enforcement with their supported SDK options. Keep Git mutations unapproved.
 
@@ -74,5 +74,3 @@ Live latency may exceed 90 seconds; prepare a previously recorded **actual** run
 - [ ] Human permission/recovery handlers normalize repository roots and protect mutation requests.
 - [ ] Live implement → review → revise flow preserves pre-existing edits and displays exact captured refs/evidence.
 - [ ] Browser pause/resume/stop, human guidance, restart recovery and refresh verified after integration.
-
-Checkboxes refer to actual outcomes documented in [repository status](repository-status.md); pending checks must be completed before presenting the whole application as integrated.

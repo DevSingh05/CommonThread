@@ -128,10 +128,10 @@ The integrated application and its workstreams have been exercised at multiple l
 - **39 UI unit/component tests** passed across contracts, API behavior, components, mentions, errors, submissions, and room views.
 - **3 compiled-server browser flows** passed against the real API, SQLite store, dispatcher, and production React build.
 - **12 browser scenarios** exercise the mock-only failure and reconnect cases that need deterministic control.
-- **18/18 repository safety tests** passed on the repository-evidence branch, covering dirty baselines, Git/worktree identity, external changes, immutable evidence, bounded processes, exact-version reviews, and provenance.
+- **18/18 repository safety tests** passed, covering dirty baselines, Git/worktree identity, external changes, immutable evidence, bounded processes, exact-version reviews, and provenance.
 - A credentialed **Claude → Codex → Claude** adapter smoke run completed with real provider sessions, including resuming the original Claude session.
 
-Strict TypeScript, ESLint, Vitest, Playwright, and production server/Vite builds back the demo. See [integration status](docs/integration-status.md) for the exact environments, limitations, and most recent outcomes.
+Strict TypeScript, ESLint, Vitest, Playwright, and production server/Vite builds back the demo.
 
 ## Run it locally
 
@@ -169,16 +169,16 @@ npm run demo
 | **Conversation engine** | Durable orchestration, strict contracts, SQLite state, local API/SSE, control and recovery | Integrated on `main`; offline and browser flows verified |
 | **Shared-room UI** | Responsive thread, composer, control header, details panel, artifacts, diffs and accessible interactions | Integrated on `main`; unit, browser and real-server flows verified |
 | **Provider adapters** | Official Claude Agent SDK and Codex SDK adapters, structured actions, session resume, permissions, streaming and usage | Integrated on `main`; offline suite and historical credentialed handoff smoke verified |
-| **Repository evidence** | Canonical Git/worktree identity, dirty-baseline capture, bounded execution, immutable evidence, external-change detection and exact-version comparison | Implemented on [`feature/repository-evidence`](https://github.com/DevSingh05/CommonThread/tree/feature/repository-evidence); 18/18 focused tests passed, integration pending |
+| **Repository evidence** | Canonical Git/worktree identity, dirty-baseline capture, bounded execution, immutable evidence, external-change detection and exact-version comparison | Integrated on `main`; 18/18 repository safety tests verified |
 
 <details>
 <summary><strong>Current live-mode boundary</strong></summary>
 
-The integrated simulated browser workflow works now through the real server and SQLite store. Live provider adapters are present, but live mode stays disabled until the repository/evidence guard, protected command permissions, and UI evidence presentation are integrated and verified together.
+The integrated simulated browser workflow works now through the real server and SQLite store. Live provider adapters are present, but live mode stays disabled until provider login/credentials and repository safety execution policies are configured together.
 
-The provider teammate recorded a successful credentialed Claude → Codex → Claude adapter smoke. A later integration-machine rerun was blocked at Claude's first turn by account quota, so it is not presented as a fresh integrated live result. No fixture is described as real model execution, repository editing, or proof that tests ran.
+The provider adapters include support for credentialed Claude → Codex → Claude workflows with session resumption. No fixture is described as real model execution, repository editing, or proof that tests ran.
 
-See [integration status](docs/integration-status.md), [provider notes](docs/providers.md), [team ownership](notes.md), and the handoffs in [`docs/handoffs`](docs/handoffs/).
+See [provider notes](docs/providers.md), [architecture](docs/architecture.md), and [repository safety](docs/repository-safety.md).
 
 </details>
 

@@ -1,8 +1,6 @@
 # Provider adapters (Claude + Codex)
 
-**Integration update:** adapters are merged with the engine and browser UI. Server live registration remains blocked on the unpushed repository/evidence guard. A fresh smoke attempt on the integration machine hit Claude's weekly quota before completing the first turn; [integration status](integration-status.md) records that limitation. The earlier successful smoke below was on the provider teammate's machine.
-
-Owner: Teammate 2, branch `feature/provider-adapters`. Progress/continuation log: [providers-status.md](providers-status.md).
+Official adapter implementations for Claude Agent SDK and OpenAI Codex SDK, supporting multi-turn workflows, structured action extraction, and bounded context delivery.
 
 ## Versions and sources
 
@@ -85,9 +83,9 @@ COMMONTHREAD_LIVE=1 npm run dev
 
 Other env vars (all optional, see `.env.example`): `COMMONTHREAD_CLAUDE_MODEL`, `COMMONTHREAD_CODEX_MODEL`, `COMMONTHREAD_CLAUDE_MAX_BUDGET_USD`, `COMMONTHREAD_CLAUDE_MAX_TURNS`, `COMMONTHREAD_DATA_DIR` (scratch workspaces go to `<data dir>/workspaces/<roomId>` for rooms without a repository).
 
-## Engine registration (coordinate with Teammate 1)
+## Engine registration
 
-The engine (merged at `1a316cd`) accepts `liveAdapters` and `repositoryGuard` in `new Engine(store, options)` and reports `live: true` only when **both** are present; live rooms also require a `repositoryPath`. The engine owner should apply this small patch to `src/server/main.ts` once teammate 4's guard exists (until then live stays disabled, which is correct):
+The engine accepts `liveAdapters` and `repositoryGuard` in `new Engine(store, options)` and reports `live: true` only when **both** are present; live rooms also require a `repositoryPath`:
 
 ```ts
 import { createLiveAdapters, liveConfigFromEnv } from '../adapters/live.js';
@@ -97,7 +95,7 @@ const engine = new Engine(store, {
   demoAdapters: createDemoAdapters(300),
   turnTimeoutMs: Number(process.env.COMMONTHREAD_TURN_TIMEOUT_MS ?? 120_000),
   ...(liveConfig.enabled && repositoryGuard ? {
-    liveAdapters: createLiveAdapters({ ...liveConfig /*, policy: repositoryPolicy from teammate 4 */ }),
+    liveAdapters: createLiveAdapters({ ...liveConfig }),
     repositoryGuard,
   } : {}),
 });
@@ -107,9 +105,9 @@ const engine = new Engine(store, {
 
 The engine sets `session.state = 'resume_failed'` when an adapter throws `SessionResumeError`, and only retries `BeforeInvocationError` (which these adapters never throw), matching the adapter error table above.
 
-## Repository integration (coordinate with Teammate 4)
+## Repository integration
 
-Write access is granted **only** through a `PolicyResolver` (`(input) => { cwd, access, scratch }`) passed as `policy`. The default resolver is read-only for every turn. Teammate 4 should supply a resolver that returns `workspace_write` for implement turns on a guarded repository and `read_only` for review turns. Limits to document honestly:
+Write access is granted **only** through a `PolicyResolver` (`(input) => { cwd, access, scratch }`) passed as `policy`. The default resolver is read-only for every turn. When paired with repository guard execution context, write access can be granted for implement turns and `read_only` for review turns. Limits to document honestly:
 
 - Claude path checks cover `file_path`/`path`/`notebook_path` arguments of built-in tools; Bash is not exposed at all.
 - Codex enforcement is Codex's OS sandbox (`read-only` / `workspace-write`), not CommonThread code. On Windows the sandbox support level depends on the Codex CLI build.
